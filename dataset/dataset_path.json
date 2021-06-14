@@ -1,0 +1,3 @@
+train_set: E:/project\HCA-SCI/algorithm/[data]/dataset/training_truth/
+test_set: E:/project/HCA-SCI/algorithm/[data]/dataset/testing_truth/
+valid_set: E:/project/HCA-SCI/algorithm/[data]/dataset/valid_truth/

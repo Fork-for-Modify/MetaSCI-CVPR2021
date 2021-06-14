@@ -1,0 +1,10 @@
+# zzh
+trained_model/
+?bak/
+_bak/
+
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
