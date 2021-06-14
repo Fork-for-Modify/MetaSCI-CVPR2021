@@ -80,8 +80,8 @@ def generate_masks_metaTest_v3(mask_path):
     return mask.astype(np.float32), mask_s.astype(np.float32)
 
 def generate_masks_MAML(mask_path, num_task):
-    mask = scio.loadmat(mask_path + '/Mask.mat')
-    mask = mask['Mask']
+    mask = scio.loadmat(mask_path)
+    mask = mask['mask']
     mask_s = np.sum(mask, axis=2)
     index = np.where(mask_s == 0)
     mask_s[index] = 1

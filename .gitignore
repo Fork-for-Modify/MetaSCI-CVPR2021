@@ -1,8 +1,10 @@
 # zzh
+result/
 trained_model/
+dataset/
 ?bak/
 _bak/
-
+bak/
 
 # Python
 __pycache__/

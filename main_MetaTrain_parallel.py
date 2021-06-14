@@ -1,12 +1,11 @@
 """
 @author : Hao
-
+# zzh: RunSuccessfully
 """
 
 import tensorflow as tf
 #import tensorflow.compat.v1 as tf
 #tf.disable_eager_execution()
-
 import numpy as np
 import os
 import random
@@ -16,14 +15,16 @@ import time
 from tqdm import tqdm
 from MetaFunc import construct_weights_modulation, forward_modulation
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
-gpus=[1,2,3]
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+gpus=[0,1]
 
 # data file
-filename = "../data/train_multi_mask2/"
+datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
+# maskpath = "E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/dataset/mask/multiplex_shift_binary_mask_1024_10f.mat"
+maskpath = "E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/dataset/mask/demo_mask_512_Cr10_N4.mat"
 
 # saving path
-path = './Result/task'
+path = './result/task'
 
 # setting global parameters
 batch_size = 2
@@ -37,8 +38,8 @@ update_lr = 1e-5
 num_updates = 5
 num_task = 3
 
-nameList = os.listdir(filename + 'gt/')
-mask_sample, mask_s_sample = generate_masks_MAML(filename, num_task)
+nameList = os.listdir(datadir)
+mask_sample, mask_s_sample = generate_masks_MAML(maskpath, num_task)
 
 if not os.path.exists(path):
     os.mkdir(path)
@@ -83,18 +84,18 @@ Y_gt = tf.placeholder('float32', [num_task, batch_size, image_dim, image_dim, nu
 for i in range(len(gpus)):
     with tf.device('/gpu:%d' % i):
         with tf.variable_scope('forward', reuse=reuse_vars):
-            xtask_output = forward_modulation(mask[i], X_meas_re[i], X_gt[i], weights, weights_m, batch_size, num_frame)
+            xtask_output = forward_modulation(mask[i], X_meas_re[i], X_gt[i], weights, weights_m, batch_size, num_frame, image_dim)
             maml_grads = tf.gradients(xtask_output['loss'], list(weights_m.values()))
             gradients = dict(zip(weights_m.keys(), maml_grads))
             fast_weights = dict(zip(weights_m.keys(), [weights_m[key] - update_lr * gradients[key] for key in weights_m.keys()]))
 
             for j in range(num_updates - 1):
-                xtask_output = forward_modulation(mask[i], X_meas_re[i], X_gt[i], weights, fast_weights, batch_size, num_frame)
+                xtask_output = forward_modulation(mask[i], X_meas_re[i], X_gt[i], weights, fast_weights, batch_size, num_frame, image_dim)
                 maml_grads = tf.gradients(xtask_output['loss'], list(fast_weights.values()))
                 gradients = dict(zip(fast_weights.keys(), maml_grads))
                 fast_weights = dict(zip(fast_weights.keys(), [fast_weights[key] - update_lr * gradients[key] for key in fast_weights.keys()]))
 
-            ytask_output = forward_modulation(mask[i], Y_meas_re[i], Y_gt[i], weights, fast_weights, batch_size, num_frame)
+            ytask_output = forward_modulation(mask[i], Y_meas_re[i], Y_gt[i], weights, fast_weights, batch_size, num_frame, image_dim)
 
             loss_op = ytask_output['loss']
 
@@ -130,8 +131,10 @@ with tf.Session() as sess:
 
             for task_index in range(num_task):
                 for index in range(len(sample_name)):
-                    gt_tmp = sci.loadmat(filename + 'gt/' + sample_name[index])
-                    meas_tmp = sci.loadmat(filename + 'measurement' + str(task_index+1) + '/' + sample_name[index])
+                    print(datadir + 'gt/' + sample_name[index], '---',datadir + 'measurement' + str(task_index+1) + '/' + sample_name[index])
+                    gt_tmp = sci.loadmat(datadir + 'gt/' + sample_name[index])
+                    meas_tmp = sci.loadmat(datadir + 'measurement' + str(task_index+1) + '/' + sample_name[index])
+                    
 
                     if index < batch_size:
                         if "patch_save" in gt_tmp:
