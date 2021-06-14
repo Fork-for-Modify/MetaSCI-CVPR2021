@@ -82,6 +82,7 @@ def generate_masks_metaTest_v3(mask_path):
 def generate_masks_MAML(mask_path, num_task):
     mask = scio.loadmat(mask_path)
     mask = mask['mask']
+    # mask = mask['mask']
     mask_s = np.sum(mask, axis=2)
     index = np.where(mask_s == 0)
     mask_s[index] = 1
@@ -91,9 +92,26 @@ def generate_masks_MAML(mask_path, num_task):
 
     mask = mask[:num_task]
     mask_s = mask_s[:num_task]
-
     return mask.astype(np.float32), mask_s.astype(np.float32)
 
+def generate_meas(gt, mask):
+    """
+    generate_meas [generate coded measurement from mask and orig]
 
+    Args:
+        gt ([3d ndarray]): [orig frames]
+        mask ([3d ndarray]): [masks]
+    """    
+    # data type convert
+    mask = mask.astype(np.float32)
+    gt = gt.astype(np.float32)
+    # rescale to 0-1
+    mask_maxv = np.max(mask)
+    if mask_maxv > 1:
+        mask = mask/mask_maxv
+    # calculate meas
+    meas = np.sum(mask*gt,2)
+    
+    return meas
 
 

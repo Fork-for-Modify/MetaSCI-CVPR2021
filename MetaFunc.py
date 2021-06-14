@@ -506,22 +506,22 @@ def MAML_parallel(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, batch_size, n
 
     return final_output
 
-def MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, weights_m, batch_size, num_frame, update_lr, num_updates):
+def MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, weights_m, batch_size, num_frame, image_dim, update_lr, num_updates):
     def every_task(inp):
         mask, X_meas_re, X_gt, Y_meas_re, Y_gt = inp
 
-        xtask_output = forward_modulation(mask, X_meas_re, X_gt, weights, weights_m, batch_size, num_frame)
+        xtask_output = forward_modulation(mask, X_meas_re, X_gt, weights, weights_m, batch_size, num_frame, image_dim)
         grads = tf.gradients(xtask_output['loss'], list(weights_m.values()))
         gradients = dict(zip(weights_m.keys(), grads))
         fast_weights = dict(zip(weights_m.keys(), [weights_m[key] - update_lr * gradients[key] for key in weights_m.keys()]))
 
         for j in range(num_updates - 1):
-            xtask_output = forward_modulation(mask, X_meas_re, X_gt, weights, fast_weights, batch_size, num_frame)
+            xtask_output = forward_modulation(mask, X_meas_re, X_gt, weights, fast_weights, batch_size, num_frame, image_dim)
             grads = tf.gradients(xtask_output['loss'], list(fast_weights.values()))
             gradients = dict(zip(fast_weights.keys(), grads))
             fast_weights = dict(zip(fast_weights.keys(), [fast_weights[key] - update_lr * gradients[key] for key in fast_weights.keys()]))
 
-        ytask_output = forward_modulation(mask, Y_meas_re, Y_gt, weights, fast_weights, batch_size, num_frame)
+        ytask_output = forward_modulation(mask, Y_meas_re, Y_gt, weights, fast_weights, batch_size, num_frame, image_dim)
 
         return ytask_output['loss']
 
