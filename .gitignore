@@ -1,8 +1,6 @@
 # zzh
 *.ckpt.*
 checkpoint
-
-trained_model/
 dataset/*
 ?bak/
 _bak/
