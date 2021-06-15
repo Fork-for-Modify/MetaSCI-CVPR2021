@@ -1,5 +1,7 @@
 # zzh
-result/*
+*.ckpt.*
+checkpoint
+
 trained_model/
 dataset/*
 ?bak/
