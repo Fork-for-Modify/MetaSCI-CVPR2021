@@ -1,10 +1,13 @@
 # zzh
-result/
+result/*
 trained_model/
-dataset/
+dataset/*
 ?bak/
 _bak/
 bak/
+
+!dataset_path.json
+!.gitkeep
 
 # Python
 __pycache__/

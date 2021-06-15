@@ -6,7 +6,6 @@
 import tensorflow as tf
 #import tensorflow.compat.v1 as tf
 #tf.disable_eager_execution()
-
 import numpy as np
 import os
 import random
@@ -16,18 +15,12 @@ import time
 from tqdm import tqdm
 from MetaFunc import construct_weights_modulation, MAML_modulation
 
+#%% setting
+## envir setteing
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 gpus=[1]
 
-# data file
-datadir = "../[data]/dataset/training_truth/data_augment_256_8f_demo/"
-maskpath = "E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/dataset/mask/origDemo_mask_256_Cr8_4.mat"
-# datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
-# maskpath = "E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/dataset/mask/demo_mask_512_Cr10_N4.mat"
-
-# saving path
-path = './result/task'
-
+## params config
 # setting global parameters
 batch_size = 1
 Total_batch_size = batch_size*2
@@ -39,7 +32,22 @@ step = 1
 update_lr = 1e-5
 num_updates = 5
 num_task = 1
+last_train = 0 # 0 - no-finetune; >0 - epoch of trained model
 
+# data path
+datadir = "../[data]/dataset/training_truth/data_augment_256_8f_demo/"
+maskpath = "E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/dataset/mask/origDemo_mask_256_Cr8_4.mat"
+# datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
+# maskpath = "E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/dataset/mask/demo_mask_512_Cr10_N4.mat"
+
+# model path
+pretrain_model_dir = 'E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/result/trained_model/simulate_data_Cr8/'
+
+# saving path
+save_path = './result/trained_model/base_model'
+
+
+#%%
 weights, weights_m = construct_weights_modulation(sigmaInit,num_frame)
 
 mask = tf.placeholder('float32', [num_task, image_dim, image_dim, num_frame])
@@ -55,8 +63,8 @@ optimizer = tf.train.AdamOptimizer(learning_rate=0.00025).minimize(final_output[
 nameList = os.listdir(datadir)
 mask_sample, mask_s_sample = generate_masks_MAML(maskpath, num_task)
 
-if not os.path.exists(path):
-    os.mkdir(path)
+if not os.path.exists(save_path):
+    os.mkdir(save_path)
 
 saver = tf.train.Saver()
 with tf.Session() as sess:
@@ -114,5 +122,5 @@ with tf.Session() as sess:
               "  time: {:.2f}".format(end - begin))
 
         if (epoch+1) % step == 0:
-            saver.save(sess, path + '/model_{}.ckpt'.format(epoch))
+            saver.save(sess, save_path + '/model_{}.ckpt'.format(epoch))
 
