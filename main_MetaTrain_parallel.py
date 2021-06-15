@@ -20,8 +20,8 @@ gpus=[0,1]
 
 # data file
 datadir = "../[data]/dataset/training_truth/data_augment_256_8f_demo/"
-# datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
 maskpath = "E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/dataset/mask/origDemo_mask_256_Cr8_4.mat"
+# datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
 # maskpath = "E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/dataset/mask/demo_mask_512_Cr10_N4.mat"
 
 # saving path
@@ -38,7 +38,7 @@ sigmaInit = 0.01
 step = 1
 update_lr = 1e-5
 num_updates = 5
-num_task = 3
+num_task = 2
 
 nameList = os.listdir(datadir)
 mask_sample, mask_s_sample = generate_masks_MAML(maskpath, num_task)
@@ -71,7 +71,7 @@ def average_gradients(tower_grads):
         average_grads.append(grad_and_var)
     return average_grads
 
-weights, weights_m = construct_weights_modulation(sigmaInit)
+weights, weights_m = construct_weights_modulation(sigmaInit,num_frame)
 
 tower_grads = []
 tower_loss = []

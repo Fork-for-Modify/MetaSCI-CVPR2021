@@ -54,7 +54,7 @@ def construct_weights(sigmaInit, num_frame):
                'w_3res9': weight_variable([3, 3, 128, 128]), 'b_3res9': bias_variable([128])}
     return weights
 
-def construct_weights_modulation(sigmaInit):
+def construct_weights_modulation(sigmaInit, num_frame): # zzh: modulation params to be adapted
     def weight_variable(shape):
         initial = tf.truncated_normal(shape, stddev=sigmaInit, dtype=tf.float32)
         return tf.Variable(initial)
@@ -67,7 +67,7 @@ def construct_weights_modulation(sigmaInit):
         initial = tf.constant(1, shape=shape, dtype=tf.float32)
         return tf.Variable(initial)
 
-    weights = {'w1': weight_variable([5, 5, 9, 32]), 'b1': bias_variable([32]),
+    weights = {'w1': weight_variable([5, 5, num_frame+1, 32]), 'b1': bias_variable([32]), #'w1': weight_variable([5, 5, 9, 32]), 'b1': bias_variable([32]),
                'w2': weight_variable([3, 3, 32, 64]), 'b2': bias_variable([64]),
                'w3': weight_variable([1, 1, 64, 64]), 'b3': bias_variable([64]),
                'w4': weight_variable([3, 3, 64, 128]), 'b4': bias_variable([128]),
@@ -78,7 +78,7 @@ def construct_weights_modulation(sigmaInit):
                'w5': weight_variable([3, 3, 64, 128]), 'b5': bias_variable([64]),
                'w51': weight_variable([3, 3, 64, 32]), 'b51': bias_variable([32]),
                'w52': weight_variable([1, 1, 32, 16]), 'b52': bias_variable([16]),
-               'w6': weight_variable([3, 3, 16, 8]), 'b6': bias_variable([8]),
+               'w6': weight_variable([3, 3, 16, num_frame]), 'b6': bias_variable([num_frame]),
                'w_1res1': weight_variable([3, 3, 128, 128]), 'b_1res1': bias_variable([128]),
                'w_1res2': weight_variable([1, 1, 128, 128]), 'b_1res2': bias_variable([128]),
                'w_1res3': weight_variable([3, 3, 128, 128]), 'b_1res3': bias_variable([128]),
@@ -107,7 +107,7 @@ def construct_weights_modulation(sigmaInit):
                'w_3res8': weight_variable([1, 1, 128, 128]), 'b_3res8': bias_variable([128]),
                'w_3res9': weight_variable([3, 3, 128, 128]), 'b_3res9': bias_variable([128])}
 
-    weights_m = {'w1_L': ones_variable([9, 1]), 'w1_R': ones_variable([1, 32]),
+    weights_m = {'w1_L': ones_variable([num_frame+1, 1]), 'w1_R': ones_variable([1, 32]),
                'w2_L': ones_variable([32, 1]), 'w2_R': ones_variable([1, 64]),
                'w3_L': ones_variable([64, 1]), 'w3_R': ones_variable([1, 64]),
                'w4_L': ones_variable([64, 1]), 'w4_R': ones_variable([1, 128]),
@@ -118,7 +118,7 @@ def construct_weights_modulation(sigmaInit):
                'w5_L': ones_variable([64, 1]), 'w5_R': ones_variable([1, 128]),
                'w51_L': ones_variable([64, 1]), 'w51_R': ones_variable([1, 32]),
                'w52_L': ones_variable([32, 1]), 'w52_R': ones_variable([1, 16]),
-               'w6_L': ones_variable([16, 1]), 'w6_R': ones_variable([1, 8]),
+               'w6_L': ones_variable([16, 1]), 'w6_R': ones_variable([1, num_frame]),
 
                'w_1res1_L': ones_variable([128, 1]), 'w_1res1_R': ones_variable([1, 128]),
                'w_1res2_L': ones_variable([128, 1]), 'w_1res2_R': ones_variable([1, 128]),

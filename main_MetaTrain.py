@@ -22,6 +22,8 @@ gpus=[1]
 # data file
 datadir = "../[data]/dataset/training_truth/data_augment_256_8f_demo/"
 maskpath = "E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/dataset/mask/origDemo_mask_256_Cr8_4.mat"
+# datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
+# maskpath = "E:/project/HCA-SCI/algorithm/MetaSCI-CVPR2021/dataset/mask/demo_mask_512_Cr10_N4.mat"
 
 # saving path
 path = './result/task'
@@ -38,7 +40,7 @@ update_lr = 1e-5
 num_updates = 5
 num_task = 1
 
-weights, weights_m = construct_weights_modulation(sigmaInit)
+weights, weights_m = construct_weights_modulation(sigmaInit,num_frame)
 
 mask = tf.placeholder('float32', [num_task, image_dim, image_dim, num_frame])
 X_meas_re = tf.placeholder('float32', [num_task, batch_size, image_dim, image_dim, 1])
