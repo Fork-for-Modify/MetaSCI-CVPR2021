@@ -43,43 +43,44 @@ def generate_masks(mask_path):
 
     return mask.astype(np.float32), mask_s.astype(np.float32)
 
-def generate_masks_metaTest(mask_path):
-    mask = scio.loadmat(mask_path + '/Mask.mat')
-    mask = mask['Mask']
-    mask_s = np.sum(mask, axis=2)
-    index = np.where(mask_s == 0)
-    mask_s[index] = 1
+# def generate_masks_metaTest(mask_path):
+#     mask = scio.loadmat(mask_path + '/Mask.mat')
+#     mask = mask['mask']
+#     mask_s = np.sum(mask, axis=2)
+#     index = np.where(mask_s == 0)
+#     mask_s[index] = 1
 
-    mask = np.transpose(mask, [3, 0, 1, 2])
-    mask_s = np.transpose(mask_s, [2, 0, 1])
+#     mask = np.transpose(mask, [3, 0, 1, 2])
+#     mask_s = np.transpose(mask_s, [2, 0, 1])
 
-    mask = mask[3]
-    mask_s = mask_s[3]
+#     mask = mask[3]
+#     mask_s = mask_s[3]
 
-    return mask.astype(np.float32), mask_s.astype(np.float32)
+#     return mask.astype(np.float32), mask_s.astype(np.float32)
 
-def generate_masks_metaTest_v2(mask_path):
-    mask = scio.loadmat(mask_path + '/Mask.mat')
-    mask = mask['Mask']
-    mask_s = np.sum(mask, axis=2)
-    index = np.where(mask_s == 0)
-    mask_s[index] = 1
+# def generate_masks_metaTest_v2(mask_path):
+#     mask = scio.loadmat(mask_path + '/Mask.mat')
+#     mask = mask['mask']
+#     mask_s = np.sum(mask, axis=2)
+#     index = np.where(mask_s == 0)
+#     mask_s[index] = 1
 
-    mask = np.transpose(mask, [3, 0, 1, 2])
-    mask_s = np.transpose(mask_s, [2, 0, 1])
+#     mask = np.transpose(mask, [3, 0, 1, 2])
+#     mask_s = np.transpose(mask_s, [2, 0, 1])
 
-    return mask.astype(np.float32), mask_s.astype(np.float32)
+#     return mask.astype(np.float32), mask_s.astype(np.float32)
 
-def generate_masks_metaTest_v3(mask_path):
-    mask = scio.loadmat(mask_path)
-    mask = mask['mask']
-    mask_s = np.sum(mask, axis=2)
-    index = np.where(mask_s == 0)
-    mask_s[index] = 1
+# def generate_masks_metaTest_v3(mask_path):
+#     mask = scio.loadmat(mask_path)
+#     mask = mask['mask']
+#     mask_s = np.sum(mask, axis=2)
+#     index = np.where(mask_s == 0)
+#     mask_s[index] = 1
 
-    return mask.astype(np.float32), mask_s.astype(np.float32)
+#     return mask.astype(np.float32), mask_s.astype(np.float32)
 
-def generate_masks_MAML(mask_path, num_task):
+def generate_masks_MAML(mask_path, picked_task):
+    # generate mask and mask_sum form given picked task index
     mask = scio.loadmat(mask_path)
     mask = mask['mask']
     # mask = mask['mask']
@@ -90,8 +91,8 @@ def generate_masks_MAML(mask_path, num_task):
     mask = np.transpose(mask, [3, 0, 1, 2])
     mask_s = np.transpose(mask_s, [2, 0, 1])
 
-    mask = mask[:num_task]
-    mask_s = mask_s[:num_task]
+    mask = mask[picked_task]
+    mask_s = mask_s[picked_task]
     return mask.astype(np.float32), mask_s.astype(np.float32)
 
 def generate_meas(gt, mask):
@@ -99,8 +100,8 @@ def generate_meas(gt, mask):
     generate_meas [generate coded measurement from mask and orig]
 
     Args:
-        gt ([3d ndarray]): [orig frames]
-        mask ([3d ndarray]): [masks]
+        gt ([H,W,Cr]): [orig frames]
+        mask ([H,W]): [masks]
     """    
     # data type convert
     mask = mask.astype(np.float32)
@@ -113,5 +114,3 @@ def generate_meas(gt, mask):
     meas = np.sum(mask*gt,2)
     
     return meas
-
-

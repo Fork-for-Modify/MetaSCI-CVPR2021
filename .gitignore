@@ -2,6 +2,7 @@
 *.ckpt.*
 checkpoint
 dataset/*
+result/*
 ?bak/
 _bak/
 bak/

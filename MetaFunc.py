@@ -1,6 +1,7 @@
 
 
 import tensorflow as tf
+import numpy as np
 #import tensorflow.compat.v1 as tf
 
 
@@ -475,7 +476,7 @@ def MAML(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, batch_size, num_frame,
     Loss = tf.map_fn(every_task, elems=inp, dtype=tf.float32)
     Loss = tf.reduce_mean(Loss)
 
-    final_output = {'Loss': Loss}
+    final_output = {'loss': Loss}
 
     return final_output
 
@@ -502,11 +503,11 @@ def MAML_parallel(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, batch_size, n
 
     Loss = tf.reduce_mean(tower_loss)
 
-    final_output = {'Loss': Loss}
+    final_output = {'loss': Loss}
 
     return final_output
 
-def MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, weights_m, batch_size, num_frame, image_dim, update_lr, num_updates):
+def MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, weights_m, batch_size, num_frame, image_dim, update_lr, num_updates, isTrian=True):
     def every_task(inp):
         mask, X_meas_re, X_gt, Y_meas_re, Y_gt = inp
 
@@ -523,12 +524,20 @@ def MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, weights_m, 
 
         ytask_output = forward_modulation(mask, Y_meas_re, Y_gt, weights, fast_weights, batch_size, num_frame, image_dim)
 
-        return ytask_output['loss']
+        return ytask_output['loss'], ytask_output['pred']
+    
+               
 
+    # Loss & Pred
     inp = [mask, X_meas_re, X_gt, Y_meas_re, Y_gt]
-    Loss = tf.map_fn(every_task, elems=inp, dtype=tf.float32)
-    Loss = tf.reduce_mean(Loss)
+    if isTrian:
+        MAML_out = tf.map_fn(every_task, elems=inp, dtype=(tf.float32,tf.float32))
+    else:
+        MAML_out = forward_modulation(mask, Y_meas_re, Y_gt, weights, weights_m, batch_size, num_frame, image_dim)
+        
+    Loss = tf.reduce_mean(MAML_out[0])
+    Pred = MAML_out[1]
 
-    final_output = {'Loss': Loss}
+    final_output = {'loss': Loss, 'pred':Pred}
 
     return final_output

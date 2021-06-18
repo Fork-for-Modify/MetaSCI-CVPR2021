@@ -1,0 +1,220 @@
+"""
+@author : Hao
+# Basemodel for metaSCI
+# modified: Zhihong Zhang, 2021.6
+
+Note:
+
+Todo:
+- realize evalution on eval dataset
+
+"""
+
+import tensorflow as tf
+# from tensorflow import InteractiveSession
+# from tensorflow import ConfigProto
+import numpy as np
+from datetime import datetime
+import os
+import logging
+from os.path import join as opj
+import random
+import scipy.io as sci
+from utils import generate_masks_MAML, generate_meas
+from my_util.plot_util import plot_multi
+from my_util.quality_util import cal_psnrssim
+import time
+from tqdm import tqdm
+from MetaFunc import construct_weights_modulation, MAML_modulation
+
+# %% setting
+# envir config
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # hide tensorflow warning
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+config.gpu_options.per_process_gpu_memory_fraction = 0.8
+tf.reset_default_graph()
+
+# params config
+# setting global parameters
+batch_size = 1
+Total_batch_size = batch_size*2 # X_meas & Y_meas
+num_frame = 10
+image_dim = 256
+Epoch = 100
+sigmaInit = 0.01
+step = 1
+update_lr = 1e-5
+num_updates = 5
+picked_task = [0] # pick masks for base model train
+num_task = len(picked_task) # num of picked masks
+run_mode = 'train'  # 'train', 'test','finetune'
+test_real = False  # test real data
+pretrain_model_idx = -1  # pretrained model index, 0 for no pretrained
+exp_name = "Realmask_Train_256_Cr10_zzhTest"
+timestamp = '{:%m-%d_%H-%M}'.format(datetime.now())  # date info
+
+# data path
+# datadir = "../[data]/dataset/training_truth/data_augment_256_8f_demo/"
+# maskpath = "./dataset/mask/origDemo_mask_256_Cr8_4.mat"
+datadir = "../[data]/dataset/training_truth/data_augment_256_10f/"
+maskpath = "./dataset/mask/realMask_256_Cr10_N576_overlap50.mat"
+# datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
+# maskpath = "./dataset/mask/demo_mask_512_Cr10_N4.mat"
+
+# model path
+# pretrain_model_path = './result/_pretrained_model/simulate_data_256_Cr8/'
+pretrain_model_path = './result/simulate_data_256_Cr8_zzhTest/trained_model/'
+
+# saving path
+save_path = './result/train/'+exp_name+'_'+timestamp+'/'
+if not os.path.exists(save_path):
+    os.mkdir(save_path)
+
+# logging setting
+logger = logging.getLogger()
+logger.setLevel('INFO')
+BASIC_FORMAT = "%(asctime)s:%(levelname)s:%(message)s"
+DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+formatter = logging.Formatter(BASIC_FORMAT, DATE_FORMAT)
+chlr = logging.StreamHandler() # 输出到控制台的handler
+chlr.setFormatter(formatter)
+chlr.setLevel('INFO')  # 也可以不设置，不设置就默认用logger的level
+fhlr = logging.FileHandler(save_path+'train.log') # 输出到文件的handler
+fhlr.setFormatter(formatter)
+logger.addHandler(chlr)
+logger.addHandler(fhlr)
+
+logger.info('Exp. name: '+exp_name)
+logger.info('Mask path: '+maskpath)
+logger.info('Data dir: '+datadir)
+logger.inf('Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, update_lr {:f}, num_updates {:d}, picked_task {:s}, run_mode {:s}, pretrain_model_idx {:d}'.format(batch_size, num_frame, image_dim, sigmaInit, update_lr, num_updates, str(picked_task), run_mode, pretrain_model_idx))
+
+# %% construct graph, load pretrained params ==> train, finetune, test
+weights, weights_m = construct_weights_modulation(sigmaInit, num_frame)
+
+mask = tf.placeholder('float32', [num_task, image_dim, image_dim, num_frame])
+X_meas_re = tf.placeholder(
+    'float32', [num_task, batch_size, image_dim, image_dim, 1])
+X_gt = tf.placeholder(
+    'float32', [num_task, batch_size, image_dim, image_dim, num_frame])
+Y_meas_re = tf.placeholder(
+    'float32', [num_task, batch_size, image_dim, image_dim, 1])
+Y_gt = tf.placeholder(
+    'float32', [num_task, batch_size, image_dim, image_dim, num_frame])
+
+final_output = MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights,
+                               weights_m, batch_size, num_frame, image_dim, update_lr, num_updates)
+
+optimizer = tf.train.AdamOptimizer(
+    learning_rate=0.00025).minimize(final_output['loss'])
+#
+nameList = os.listdir(datadir)
+mask_sample, mask_s_sample = generate_masks_MAML(maskpath, picked_task)
+# print(mask_sample.shape)
+
+saver = tf.train.Saver()
+
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+
+    # load pretrained params
+    if run_mode in ['test', 'finetune']:
+        ckpt = tf.train.get_checkpoint_state(pretrain_model_path)
+        if ckpt:
+            ckpt_states = ckpt.all_model_checkpoint_paths
+            saver.restore(sess, ckpt_states[pretrain_model_idx])
+            print('===> Load pretrained model from: '+pretrain_model_path)
+        else:
+            print('===> No pretrained model found, skip')
+
+    # [==> train & finetune]
+    if run_mode in ['train', 'finetune']:
+        for epoch in range(Epoch):
+            random.shuffle(nameList)
+            epoch_loss = 0
+            begin = time.time()
+
+            for iter in tqdm(range(int(len(nameList)/Total_batch_size))):
+                sample_name = nameList[iter *
+                                       Total_batch_size: (iter+1)*Total_batch_size]
+                X_gt_sample = np.zeros(
+                    [num_task, batch_size, image_dim, image_dim, num_frame])
+                X_meas_sample = np.zeros(
+                    [num_task, batch_size, image_dim, image_dim])
+                Y_gt_sample = np.zeros(
+                    [num_task, batch_size, image_dim, image_dim, num_frame])
+                Y_meas_sample = np.zeros(
+                    [num_task, batch_size, image_dim, image_dim])
+
+                for task_index in range(num_task):
+                    for index in range(len(sample_name)):
+                        mask_sample_i = mask_sample[task_index]
+                        gt_tmp = sci.loadmat(datadir + sample_name[index])
+                        if "patch_save" in gt_tmp:
+                            gt_tmp = gt_tmp['patch_save'] / 255
+                        elif "orig" in gt_tmp:
+                            gt_tmp = gt_tmp['orig'] / 255
+
+                        meas_tmp = generate_meas(
+                            gt_tmp, mask_sample_i)  # zzh: calculate meas
+
+                        if index < batch_size:
+                            X_gt_sample[task_index, index, :, :] = gt_tmp
+                            X_meas_sample[task_index, index, :, :] = meas_tmp
+                        else:
+                            Y_gt_sample[task_index, index -
+                                        batch_size, :, :] = gt_tmp
+                            Y_meas_sample[task_index, index -
+                                          batch_size, :, :] = meas_tmp
+
+                X_meas_re_sample = X_meas_sample / \
+                    np.expand_dims(mask_s_sample, axis=1)
+                X_meas_re_sample = np.expand_dims(X_meas_re_sample, axis=-1)
+
+                Y_meas_re_sample = Y_meas_sample / \
+                    np.expand_dims(mask_s_sample, axis=1)
+                Y_meas_re_sample = np.expand_dims(Y_meas_re_sample, axis=-1)
+
+                _, Loss = sess.run([optimizer, final_output['loss']],
+                                   feed_dict={mask: mask_sample,
+                                              X_meas_re: X_meas_re_sample,
+                                              X_gt: X_gt_sample,
+                                              Y_meas_re: Y_meas_re_sample,
+                                              Y_gt: Y_gt_sample})
+                epoch_loss += Loss
+
+            end = time.time()
+            logger.info("===> Epoch {} Complete: Avg. Loss: {:.7f} \t Time: {:.2f}".format(
+                epoch, epoch_loss / int(len(nameList)/batch_size), (end - begin)))
+
+            if (epoch+1) % step == 0:
+                # save model
+                saver.save(sess, save_path + 'trained_model/model.ckpt',
+                           global_step=epoch, write_meta_graph=False)
+                logger.info('---> model saved to: ' + save_path)
+
+                # eval & save recon (one coded meas)
+                # TODO: realize evalution on eval dataset
+                Y_pred = sess.run([final_output['pred']],
+                                  feed_dict={mask: mask_sample,
+                                             X_meas_re: X_meas_re_sample[:, [0], ...],
+                                             X_gt: X_gt_sample[:, [0], ...],
+                                             Y_meas_re: Y_meas_re_sample[:, [0], ...],
+                                             Y_gt: Y_gt_sample[:, [0], ...]})  # pred for Y_meas
+
+                Y_pred = np.array(Y_pred[0])
+                Y_pred = Y_pred[:, 0, ...]
+                Y_gt_sample = Y_gt_sample[:, 0, ...]
+                Y_pred = np.moveaxis(Y_pred, 0, -1)
+                Y_gt_sample = np.moveaxis(Y_gt_sample, 0, -1)
+
+                Y_psnr, Y_ssim = cal_psnrssim(Y_gt_sample, Y_pred)
+                logger.info(
+                    "---> Current PSNR: {:.7f} \t SSIM {:.7f}".format(Y_psnr, Y_ssim))
+
+                # save image
+                for task_index in range(num_task):
+                    plot_multi(Y_pred[..., task_index], 'recon', col_num=num_frame//2, savename='recon_img_task'+str(
+                        task_index)+'_epoch'+str(epoch), savedir=save_path+'recon_img/')
