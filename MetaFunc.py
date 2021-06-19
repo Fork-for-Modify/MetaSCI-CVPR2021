@@ -507,7 +507,7 @@ def MAML_parallel(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, batch_size, n
 
     return final_output
 
-def MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, weights_m, batch_size, num_frame, image_dim, update_lr, num_updates, isTrian=True):
+def MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, weights_m, batch_size, num_frame, image_dim, update_lr, num_updates):
     def every_task(inp):
         mask, X_meas_re, X_gt, Y_meas_re, Y_gt = inp
 
@@ -530,10 +530,7 @@ def MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, weights_m, 
 
     # Loss & Pred
     inp = [mask, X_meas_re, X_gt, Y_meas_re, Y_gt]
-    if isTrian:
-        MAML_out = tf.map_fn(every_task, elems=inp, dtype=(tf.float32,tf.float32))
-    else:
-        MAML_out = forward_modulation(mask, Y_meas_re, Y_gt, weights, weights_m, batch_size, num_frame, image_dim)
+    MAML_out = tf.map_fn(every_task, elems=inp, dtype=(tf.float32,tf.float32))
         
     Loss = tf.reduce_mean(MAML_out[0])
     Pred = MAML_out[1]

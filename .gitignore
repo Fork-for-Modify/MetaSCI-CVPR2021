@@ -6,6 +6,7 @@ result/*
 ?bak/
 _bak/
 bak/
+_tmp*
 
 !dataset_path.json
 !.gitkeep
