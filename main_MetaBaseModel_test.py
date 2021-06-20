@@ -47,7 +47,7 @@ image_dim = 256
 sigmaInit = 0.01
 update_lr = 1e-5
 num_updates = 5
-picked_task = [0] # pick masks for base model train
+picked_task = [0,2,4] # pick masks for base model train
 num_task = len(picked_task) # num of picked masks
 run_mode = 'test'  # 'train', 'test','finetune'
 test_real = False  # test real data
@@ -68,7 +68,7 @@ maskpath = "./dataset/mask/realMask_256_Cr10_N576_overlap50.mat"
 
 # model path
 # pretrain_model_path = './result/_pretrained_model/simulate_data_256_Cr8/'
-pretrain_model_path = './result/train/M_Realmask_Train_256_Cr10_zzhTest_06-18_19-25/trained_model/'
+pretrain_model_path = './result/train/A_Realmask_BaseTrain_256_Cr10_06-18_19-25/trained_model/'
 # pretrain_model_path = './result/train/real_data_512_Cr10/'
 
 # saving path
@@ -123,10 +123,11 @@ with tf.Session() as sess:
             logger.error('===> No pretrained model found')
             raise FileNotFoundError('No pretrained model found')
                                        
-    # [==> test]             
-    validset_psnr = 0
-    validset_ssim = 0      
+    # [==> test]                 
     for task_index in range(num_task):
+        logger.info('\n===== Task Task {:4d}/{:<4d} Test Begin=====\n'.format(task_index, len(picked_task)))
+        validset_psnr = 0
+        validset_ssim = 0  
         mask_sample_i = mask_sample[task_index]
         mask_s_sample_i = mask_s_sample[task_index]
         for index in tqdm(range(len(nameList))):
@@ -192,7 +193,7 @@ with tf.Session() as sess:
                     ssim_all =np.append(ssim_all,ssim_all_m)
                     
                     # save image
-                    plot_multi(pred[...,m], 'MeasRecon_Task%d_%s_Frame%d'%(picked_task[task_index], nameList[index].split('.')[0],m), col_num=num_frame//2, titles=psnr_all_m,savename='MeasRecon_Task%d_%s_Frame%d_psnr%.2f_ssim%.2f'%(picked_task[task_index], nameList[index].split('.')[0],m,np.mean(psnr_all_m),np.mean(ssim_all_m)), savedir=save_path+'recon_img/')                            
+                    plot_multi(pred[...,m], 'MeasRecon_Task%d_%s_Frame%d'%(picked_task[task_index], nameList[index].split('.')[0],m), col_num=num_frame//2, titles=psnr_all_m,savename='MeasRecon_Task%d_%s_Frame%d_psnr%.2f_ssim%.2f'%(picked_task[task_index], nameList[index].split('.')[0],m,np.mean(psnr_all_m),np.mean(ssim_all_m)), savedir=save_path+'recon_img/task%d/'%picked_task[task_index])                            
                                         
                 mean_psnr = np.mean(psnr_all)
                 mean_ssim = np.mean(ssim_all)
@@ -202,10 +203,10 @@ with tf.Session() as sess:
                                     
                 logger.info('---> Task {} - {:<20s} Recon complete: PSNR {:.2f}, SSIM {:.2f}, Time {:.2f}'.format(picked_task[task_index], nameList[index], mean_psnr, mean_ssim, time_all))
 
-            
-            if not ope(save_path+'recon_mat/'):
-                os.makedirs(save_path+'recon_mat/')
-            sci.savemat(save_path+'recon_mat/MeasRecon_Task%d_%s_psnr%.2f_ssim%.2f.mat'%(picked_task[task_index], nameList[index].split('.')[0],mean_psnr,mean_ssim),
+            mat_save_path = save_path+'recon_mat/task%d/'%picked_task[task_index]
+            if not ope(mat_save_path):
+                os.makedirs(mat_save_path)
+            sci.savemat(mat_save_path+'MeasRecon_Task%d_%s_psnr%.2f_ssim%.2f.mat'%(picked_task[task_index], nameList[index].split('.')[0],mean_psnr,mean_ssim),
                         {'recon':pred, 
                         'gt':gt_sample,
                         'psnr_all':psnr_all,
@@ -216,6 +217,6 @@ with tf.Session() as sess:
                         'task_index':picked_task[task_index]            
                         })
             logger.info('---> Recon data saved to: '+save_path)
-    validset_psnr /= len(nameList)
-    validset_ssim /= len(nameList)       
-    logger.info('===> Task No. {} Recon complete: Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(task_index, validset_psnr, validset_ssim))
+        validset_psnr /= len(nameList)
+        validset_ssim /= len(nameList)       
+        logger.info('===> Task Task {:4d}/{:<4d} Recon complete: Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(task_index,len(picked_task), validset_psnr, validset_ssim))

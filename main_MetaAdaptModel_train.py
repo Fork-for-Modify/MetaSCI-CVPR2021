@@ -57,18 +57,15 @@ model_name_prefix = 'adapt_model'
 timestamp = '{:%m-%d_%H-%M}'.format(datetime.now())  # date info
 
 # data path
-# datadir = "../[data]/dataset/training_truth/data_augment_256_8f_demo/"
-# maskpath = "./dataset/mask/origDemo_mask_256_Cr8_4.mat"
 # trainning set
-datadir = "../[data]/dataset/training_truth/data_augment_256_10f_demo/"
+datadir = "../[data]/dataset/training_truth/data_augment_256_10f/"
 valid_dir = "../[data]/dataset/testing_truth/bm_256_10f/"
 maskpath = "./dataset/mask/realMask_256_Cr10_N576_overlap50.mat"
-# datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
-# maskpath = "./dataset/mask/demo_mask_512_Cr10_N4.mat"
+
 
 # model path
 # pretrain_model_path = './result/_pretrained_model/simulate_data_256_Cr8/'
-pretrain_model_path = './result/train/M_Realmask_Train_256_Cr10_zzhTest_06-18_19-25/trained_model/'
+pretrain_model_path = './result/train/A_Realmask_BaseTrain_256_Cr10_06-18_19-25/trained_model/'
 
 # saving path
 save_path = './result/train/'+exp_name+'_'+timestamp+'/'
@@ -135,7 +132,7 @@ with tf.Session() as sess:
     # [==> train & finetune]
     for task_index in range(num_task):
         saver = tf.train.Saver()
-        logger.info('\n===== Adaptation for Task No. %d =====\n'%(task_index))
+        logger.info('\n===== Adaptation for Task Task {:4d}/{:<4d} =====\n'.format(task_index,len(picked_task)))
         mask_sample_i = mask_sample[task_index]
         mask_s_sample_i = mask_s_sample[task_index]
         for epoch in range(Epoch):
@@ -246,5 +243,4 @@ with tf.Session() as sess:
 
                 validset_psnr = validset_psnr/len(valid_nameList)
                 validset_ssim = validset_ssim/len(valid_nameList)
-                logger.info('---> Task No. {} Recon complete: Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(
-                    task_index, validset_psnr, validset_ssim))
+                logger.info('---> Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(validset_psnr, validset_ssim))

@@ -198,8 +198,8 @@ with tf.Session() as sess:
             epoch_loss += Loss
 
         end = time.time()
-        logger.info("===> Epoch {} - Task {} Complete: Avg. Loss: {:.7f} \t Time: {:.2f}".format(
-            epoch, task_index, epoch_loss / int(len(nameList)/batch_size), (end - begin)))
+        logger.info("===> Epoch {} Complete: Avg. Loss: {:.7f} \t Time: {:.2f}".format(
+            epoch, epoch_loss / int(len(nameList)/batch_size), (end - begin)))
 
         if (epoch+1) % step == 0:
             # save model
@@ -267,5 +267,5 @@ with tf.Session() as sess:
 
                 validset_psnr = validset_psnr/len(valid_nameList)
                 validset_ssim = validset_ssim/len(valid_nameList)
-                logger.info('---> Task {} Recon complete: Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(
+                logger.info('---> Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(
                     task_index, validset_psnr, validset_ssim))
