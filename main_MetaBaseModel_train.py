@@ -47,6 +47,7 @@ sigmaInit = 0.01
 step = 1
 update_lr = 1e-5
 num_updates = 5
+max_iter = 3e4 # max iter in one epoch
 picked_task = [200]  # pick masks for base model train
 num_task = len(picked_task)  # num of picked masks
 run_mode = 'finetune'  # 'train', 'test','finetune'
@@ -91,22 +92,19 @@ logger.addHandler(fhlr)
 logger.info('\t Exp. name: '+exp_name)
 logger.info('\t Mask path: '+maskpath)
 logger.info('\t Data dir: '+datadir)
-logger.info('\t Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, update_lr {:f}, num_updates {:d}, picked_task {:s}, run_mode- {:s}, pretrain_model_idx {:d}'.format(
-    batch_size, num_frame, image_dim, sigmaInit, update_lr, num_updates, str(picked_task), run_mode, pretrain_model_idx))
+logger.info('\t pretrain model: '+pretrain_model_path)
+logger.info('\t Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, update_lr {:f}, num_updates {:d}, max_iter {:d}, picked_task {:s}, run_mode- {:s}, pretrain_model_idx {:d}'.format(
+    batch_size, num_frame, image_dim, sigmaInit, update_lr, num_updates, max_iter, str(picked_task), run_mode, pretrain_model_idx))
 
 # %% construct graph, load pretrained params ==> train, finetune, test
 weights, weights_m = construct_weights_modulation(sigmaInit, num_frame)
 
 # For train
 mask = tf.placeholder('float32', [num_task, image_dim, image_dim, num_frame])
-X_meas_re = tf.placeholder(
-    'float32', [num_task, batch_size, image_dim, image_dim, 1])
-X_gt = tf.placeholder(
-    'float32', [num_task, batch_size, image_dim, image_dim, num_frame])
-Y_meas_re = tf.placeholder(
-    'float32', [num_task, batch_size, image_dim, image_dim, 1])
-Y_gt = tf.placeholder(
-    'float32', [num_task, batch_size, image_dim, image_dim, num_frame])
+X_meas_re = tf.placeholder('float32', [num_task, batch_size, image_dim, image_dim, 1])
+X_gt = tf.placeholder('float32', [num_task, batch_size, image_dim, image_dim, num_frame])
+Y_meas_re = tf.placeholder('float32', [num_task, batch_size, image_dim, image_dim, 1])
+Y_gt = tf.placeholder('float32', [num_task, batch_size, image_dim, image_dim, num_frame])
 
 final_output = MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights,
                                weights_m, batch_size, num_frame, image_dim, update_lr, num_updates)
@@ -148,17 +146,14 @@ with tf.Session() as sess:
         epoch_loss = 0
         begin = time.time()
 
-        for iter in tqdm(range(int(len(nameList)/Total_batch_size))):
+        max_iter = len(nameList) if len(nameList)<max_iter else max_iter # max iter in an epoch
+        for iter in tqdm(range(int(max_iter/Total_batch_size))):
             sample_name = nameList[iter *
                                     Total_batch_size: (iter+1)*Total_batch_size]
-            X_gt_sample = np.zeros(
-                [num_task, batch_size, image_dim, image_dim, num_frame])
-            X_meas_sample = np.zeros(
-                [num_task, batch_size, image_dim, image_dim])
-            Y_gt_sample = np.zeros(
-                [num_task, batch_size, image_dim, image_dim, num_frame])
-            Y_meas_sample = np.zeros(
-                [num_task, batch_size, image_dim, image_dim])
+            X_gt_sample = np.zeros([num_task, batch_size, image_dim, image_dim, num_frame])
+            X_meas_sample = np.zeros([num_task, batch_size, image_dim, image_dim])
+            Y_gt_sample = np.zeros([num_task, batch_size, image_dim, image_dim, num_frame])
+            Y_meas_sample = np.zeros([num_task, batch_size, image_dim, image_dim])
 
             for task_index in range(num_task):
                 mask_sample_i = mask_sample[task_index]
@@ -169,8 +164,7 @@ with tf.Session() as sess:
                     elif "orig" in gt_tmp:
                         gt_tmp = gt_tmp['orig'] / 255
 
-                    meas_tmp, gt_tmp = generate_meas(
-                        gt_tmp, mask_sample_i)  # zzh: calculate meas
+                    meas_tmp, gt_tmp = generate_meas(gt_tmp, mask_sample_i)  # zzh: calculate meas
 
                     if index < batch_size:
                         X_gt_sample[task_index, index,
@@ -195,6 +189,7 @@ with tf.Session() as sess:
                                             X_gt: X_gt_sample,
                                             Y_meas_re: Y_meas_re_sample,
                                             Y_gt: Y_gt_sample})
+            
             epoch_loss += Loss
 
         end = time.time()
@@ -261,11 +256,10 @@ with tf.Session() as sess:
                     validset_ssim += mean_ssim
 
                     # save 1st data's recon image and data
-                    if index == 1:
+                    if index == 3:
                         plot_multi(pred, 'MeasRecon_Task%d_%s_Epoch%d' % (task_index, valid_nameList[index].split('.')[0], epoch), col_num=num_frame//2, titles=psnr_all, savename='MeasRecon_Task%d_%s_Epoch%d_psnr%.2f_ssim%.2f' % (
                             task_index, valid_nameList[index].split('.')[0], epoch, mean_psnr, mean_ssim), savedir=save_path+'recon_img/')
 
                 validset_psnr = validset_psnr/len(valid_nameList)
                 validset_ssim = validset_ssim/len(valid_nameList)
-                logger.info('---> Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(
-                    task_index, validset_psnr, validset_ssim))
+                logger.info('---> Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(validset_psnr, validset_ssim))

@@ -47,6 +47,7 @@ sigmaInit = 0.01
 step = 1
 update_lr = 1e-5
 num_updates = 5
+max_iter = 1000 # max iter in an epoch
 picked_task = list(range(1,5))  # pick masks for base model train
 num_task = len(picked_task)  # num of picked masks
 run_mode = 'finetune'  # 'train', 'test','finetune'
@@ -89,8 +90,10 @@ logger.addHandler(fhlr)
 logger.info('\t Exp. name: '+exp_name)
 logger.info('\t Mask path: '+maskpath)
 logger.info('\t Data dir: '+datadir)
-logger.info('\t Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, update_lr {:f}, num_updates {:d}, picked_task {:s}, run_mode- {:s}, pretrain_model_idx {:d}'.format(
-    batch_size, num_frame, image_dim, sigmaInit, update_lr, num_updates, str(picked_task), run_mode, pretrain_model_idx))
+logger.info('\t pretrain model: '+pretrain_model_path)
+logger.info('\t model name prefix: '+model_name_prefix)
+logger.info('\t Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, update_lr {:f}, num_updates {:d}, max_iter {:d}, picked_task {:s}, run_mode- {:s}, pretrain_model_idx {:d}'.format(
+    batch_size, num_frame, image_dim, sigmaInit, update_lr, num_updates, max_iter, str(picked_task), run_mode, pretrain_model_idx))
 
 # %% construct graph, load pretrained params ==> train, finetune, test
 # Place holder
@@ -139,8 +142,9 @@ with tf.Session() as sess:
             random.shuffle(nameList)
             epoch_loss = 0
             begin = time.time()
-
-            for iter in tqdm(range(int(len(nameList)/batch_size))):
+            
+            max_iter = len(nameList) if len(nameList)<max_iter else max_iter # max iter in an epoch
+            for iter in tqdm(range(int(max_iter/batch_size))):
                 sample_name = nameList[iter *batch_size: (iter+1)*batch_size]
                 gt_sample = np.zeros([batch_size, image_dim, image_dim, num_frame])
                 meas_sample = np.zeros([batch_size, image_dim, image_dim])
@@ -236,8 +240,8 @@ with tf.Session() as sess:
                     validset_psnr += mean_psnr
                     validset_ssim += mean_ssim
 
-                    # save 1st data's recon image and data
-                    if index == 1:
+                    # save 1st data's recon image and data as an example
+                    if index == 3:
                         plot_multi(pred, 'MeasRecon_Task%d_%s_Epoch%d' % (picked_task[task_index], valid_nameList[index].split('.')[0], epoch), col_num=num_frame//2, titles=psnr_all, savename='MeasRecon_Task%d_%s_Epoch%d_psnr%.2f_ssim%.2f' % (
                             picked_task[task_index], valid_nameList[index].split('.')[0], epoch, mean_psnr, mean_ssim), savedir=save_path+'recon_img/adapt_model%d/'%picked_task[task_index])
 

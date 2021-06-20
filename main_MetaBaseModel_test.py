@@ -52,19 +52,15 @@ num_task = len(picked_task) # num of picked masks
 run_mode = 'test'  # 'train', 'test','finetune'
 test_real = False  # test real data
 pretrain_model_idx = -1  # pretrained model index, 0 for no pretrained
-exp_name = "M_Realmask_Train_256_Cr10_zzhTest_06-18_19-25_Test"
+exp_name = "M_Realmask_BaseTest_256_Cr10_zzhTest_06-18_19-25_Test"
 # exp_name = "real_data_256_Cr10"
 timestamp = '{:%m-%d_%H-%M}'.format(datetime.now())  # date info
 
 # data path
-# datadir = "../[data]/dataset/training_truth/data_augment_256_8f_demo/"
-# maskpath = "./dataset/mask/origDemo_mask_256_Cr8_4.mat"
 # datadir = "../[data]/dataset/testing_truth/bm_256_10f/"
 datadir = "../[data]/benchmark/orig/bm_256/"
 # datadir = "../[data]/dataset/testing_truth/test_256_10f/"
 maskpath = "./dataset/mask/realMask_256_Cr10_N576_overlap50.mat"
-# datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
-# maskpath = "./dataset/mask/demo_mask_512_Cr10_N4.mat"
 
 # model path
 # pretrain_model_path = './result/_pretrained_model/simulate_data_256_Cr8/'
@@ -93,6 +89,7 @@ logger.addHandler(fhlr)
 logger.info('Exp. name: '+exp_name)
 logger.info('Mask path: '+maskpath)
 logger.info('Data dir: '+datadir)
+logger.info('\t pretrain model: '+pretrain_model_path)
 logger.info('Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, picked_task {:s}, run_mode-{:s}, pretrain_model_idx {:d}'.format(batch_size, num_frame, image_dim, sigmaInit, str(picked_task), run_mode, pretrain_model_idx))
 
 #%% construct graph, load pretrained params ==> train, finetune, test
@@ -219,4 +216,4 @@ with tf.Session() as sess:
             logger.info('---> Recon data saved to: '+save_path)
         validset_psnr /= len(nameList)
         validset_ssim /= len(nameList)       
-        logger.info('===> Task Task {:4d}/{:<4d} Recon complete: Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(task_index,len(picked_task), validset_psnr, validset_ssim))
+        logger.info('===> Task {:4d}/{:<4d} Recon complete: Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(task_index,len(picked_task), validset_psnr, validset_ssim))
