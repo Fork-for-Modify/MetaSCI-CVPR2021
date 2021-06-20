@@ -530,6 +530,8 @@ def MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights, weights_m, 
 
     # Loss & Pred
     inp = [mask, X_meas_re, X_gt, Y_meas_re, Y_gt]
+    
+    # for each task: do 'every_task' function (self-designed manual grad descent for 'weights_m')
     MAML_out = tf.map_fn(every_task, elems=inp, dtype=(tf.float32,tf.float32))
         
     Loss = tf.reduce_mean(MAML_out[0])

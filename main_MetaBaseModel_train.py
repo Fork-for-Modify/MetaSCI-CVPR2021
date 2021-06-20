@@ -9,8 +9,6 @@ Todo:
 + realize evalution on eval dataset
 
 """
-
-
 import numpy as np
 from datetime import datetime
 import os
@@ -28,7 +26,7 @@ from MetaFunc import construct_weights_modulation, MAML_modulation, forward_modu
 
 # %% setting
 # envir config
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # hide tensorflow warning
 
 import tensorflow as tf
@@ -41,7 +39,7 @@ tf.reset_default_graph()
 # params config
 # setting global parameters
 batch_size = 1
-Total_batch_size = batch_size*2 # X_meas & Y_meas
+Total_batch_size = batch_size*2  # X_meas & Y_meas
 num_frame = 10
 image_dim = 256
 Epoch = 100
@@ -49,19 +47,20 @@ sigmaInit = 0.01
 step = 1
 update_lr = 1e-5
 num_updates = 5
-picked_task = [200] # pick masks for base model train
-num_task = len(picked_task) # num of picked masks
+picked_task = [200]  # pick masks for base model train
+num_task = len(picked_task)  # num of picked masks
 run_mode = 'finetune'  # 'train', 'test','finetune'
 test_real = False  # test real data
 pretrain_model_idx = -1  # pretrained model index, 0 for no pretrained
-exp_name = "Realmask_Train_256_Cr10_zzhTest"
+exp_name = "Realmask_BaseTrain_256_Cr10_zzhTest"
 timestamp = '{:%m-%d_%H-%M}'.format(datetime.now())  # date info
 
 # data path
 # datadir = "../[data]/dataset/training_truth/data_augment_256_8f_demo/"
 # maskpath = "./dataset/mask/origDemo_mask_256_Cr8_4.mat"
-datadir = "../[data]/dataset/training_truth/data_augment_256_10f/"
-valid_dir =  "../[data]/dataset/testing_truth/test_256_10f/"
+# trainning set
+datadir = "../[data]/dataset/training_truth/data_augment_256_10f_demo/"
+valid_dir = "../[data]/dataset/testing_truth/test_256_10f/"
 maskpath = "./dataset/mask/realMask_256_Cr10_N576_overlap50.mat"
 # datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
 # maskpath = "./dataset/mask/demo_mask_512_Cr10_N4.mat"
@@ -81,10 +80,10 @@ logger.setLevel('INFO')
 BASIC_FORMAT = "%(asctime)s:%(levelname)s:%(message)s"
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 formatter = logging.Formatter(BASIC_FORMAT, DATE_FORMAT)
-chlr = logging.StreamHandler() # handler for console output
+chlr = logging.StreamHandler()  # handler for console output
 chlr.setFormatter(formatter)
 chlr.setLevel('INFO')
-fhlr = logging.FileHandler(save_path+'train.log')# handler for log file
+fhlr = logging.FileHandler(save_path+'train.log')  # handler for log file
 fhlr.setFormatter(formatter)
 logger.addHandler(chlr)
 logger.addHandler(fhlr)
@@ -92,7 +91,8 @@ logger.addHandler(fhlr)
 logger.info('\t Exp. name: '+exp_name)
 logger.info('\t Mask path: '+maskpath)
 logger.info('\t Data dir: '+datadir)
-logger.info('\t Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, update_lr {:f}, num_updates {:d}, picked_task {:s}, run_mode- {:s}, pretrain_model_idx {:d}'.format(batch_size, num_frame, image_dim, sigmaInit, update_lr, num_updates, str(picked_task), run_mode, pretrain_model_idx))
+logger.info('\t Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, update_lr {:f}, num_updates {:d}, picked_task {:s}, run_mode- {:s}, pretrain_model_idx {:d}'.format(
+    batch_size, num_frame, image_dim, sigmaInit, update_lr, num_updates, str(picked_task), run_mode, pretrain_model_idx))
 
 # %% construct graph, load pretrained params ==> train, finetune, test
 weights, weights_m = construct_weights_modulation(sigmaInit, num_frame)
@@ -117,8 +117,10 @@ saver = tf.train.Saver()
 # For eval
 eval_mask = tf.placeholder('float32', [image_dim, image_dim, num_frame])
 eval_meas_re = tf.placeholder('float32', [batch_size, image_dim, image_dim, 1])
-eval_gt = tf.placeholder('float32', [batch_size, image_dim, image_dim, num_frame])
-pred_output = forward_modulation(eval_mask, eval_meas_re, eval_gt, weights, weights_m, batch_size, num_frame, image_dim)
+eval_gt = tf.placeholder(
+    'float32', [batch_size, image_dim, image_dim, num_frame])
+pred_output = forward_modulation(
+    eval_mask, eval_meas_re, eval_gt, weights, weights_m, batch_size, num_frame, image_dim)
 
 # data names
 nameList = os.listdir(datadir)
@@ -135,130 +137,135 @@ with tf.Session() as sess:
         if ckpt:
             ckpt_states = ckpt.all_model_checkpoint_paths
             saver.restore(sess, ckpt_states[pretrain_model_idx])
-            logger.info('===> Load pretrained model from: '+pretrain_model_path)
+            logger.info('===> Load pretrained model from: ' +
+                        pretrain_model_path)
         else:
             logger.warn('===> No pretrained model found, skip')
 
     # [==> train & finetune]
-    if run_mode in ['train', 'finetune']:
-        for epoch in range(Epoch):
-            random.shuffle(nameList)
-            epoch_loss = 0
-            begin = time.time()
+    for epoch in range(Epoch):
+        random.shuffle(nameList)
+        epoch_loss = 0
+        begin = time.time()
 
-            for iter in tqdm(range(int(len(nameList)/Total_batch_size))):
-                sample_name = nameList[iter *
-                                       Total_batch_size: (iter+1)*Total_batch_size]
-                X_gt_sample = np.zeros(
-                    [num_task, batch_size, image_dim, image_dim, num_frame])
-                X_meas_sample = np.zeros(
-                    [num_task, batch_size, image_dim, image_dim])
-                Y_gt_sample = np.zeros(
-                    [num_task, batch_size, image_dim, image_dim, num_frame])
-                Y_meas_sample = np.zeros(
-                    [num_task, batch_size, image_dim, image_dim])
+        for iter in tqdm(range(int(len(nameList)/Total_batch_size))):
+            sample_name = nameList[iter *
+                                    Total_batch_size: (iter+1)*Total_batch_size]
+            X_gt_sample = np.zeros(
+                [num_task, batch_size, image_dim, image_dim, num_frame])
+            X_meas_sample = np.zeros(
+                [num_task, batch_size, image_dim, image_dim])
+            Y_gt_sample = np.zeros(
+                [num_task, batch_size, image_dim, image_dim, num_frame])
+            Y_meas_sample = np.zeros(
+                [num_task, batch_size, image_dim, image_dim])
 
-                for task_index in range(num_task):
-                    for index in range(len(sample_name)):
-                        mask_sample_i = mask_sample[task_index]
-                        gt_tmp = sci.loadmat(datadir + sample_name[index])
-                        if "patch_save" in gt_tmp:
-                            gt_tmp = gt_tmp['patch_save'] / 255
-                        elif "orig" in gt_tmp:
-                            gt_tmp = gt_tmp['orig'] / 255
+            for task_index in range(num_task):
+                mask_sample_i = mask_sample[task_index]
+                for index in range(len(sample_name)):
+                    gt_tmp = sci.loadmat(datadir + sample_name[index])
+                    if "patch_save" in gt_tmp:
+                        gt_tmp = gt_tmp['patch_save'] / 255
+                    elif "orig" in gt_tmp:
+                        gt_tmp = gt_tmp['orig'] / 255
 
-                        meas_tmp = generate_meas(gt_tmp, mask_sample_i)  # zzh: calculate meas
+                    meas_tmp, gt_tmp = generate_meas(
+                        gt_tmp, mask_sample_i)  # zzh: calculate meas
 
-                        if index < batch_size:
-                            X_gt_sample[task_index, index, :, :] = gt_tmp
-                            X_meas_sample[task_index, index, :, :] = meas_tmp
-                        else:
-                            Y_gt_sample[task_index, index -
-                                        batch_size, :, :] = gt_tmp
-                            Y_meas_sample[task_index, index -
-                                          batch_size, :, :] = meas_tmp
+                    if index < batch_size:
+                        X_gt_sample[task_index, index,
+                                    :, :] = gt_tmp[0, ...]
+                        X_meas_sample[task_index, index,
+                                        :, :] = meas_tmp[0, ...]
+                    else:
+                        Y_gt_sample[task_index, index -
+                                    batch_size, :, :] = gt_tmp
+                        Y_meas_sample[task_index, index -
+                                        batch_size, :, :] = meas_tmp
 
-                X_meas_re_sample = X_meas_sample / \
-                    np.expand_dims(mask_s_sample, axis=1)
-                X_meas_re_sample = np.expand_dims(X_meas_re_sample, axis=-1)
+            X_meas_re_sample = X_meas_sample / np.expand_dims(mask_s_sample, axis=1)
+            X_meas_re_sample = np.expand_dims(X_meas_re_sample, axis=-1)
 
-                Y_meas_re_sample = Y_meas_sample / \
-                    np.expand_dims(mask_s_sample, axis=1)
-                Y_meas_re_sample = np.expand_dims(Y_meas_re_sample, axis=-1)
+            Y_meas_re_sample = Y_meas_sample / np.expand_dims(mask_s_sample, axis=1)
+            Y_meas_re_sample = np.expand_dims(Y_meas_re_sample, axis=-1)
 
-                _, Loss = sess.run([optimizer, final_output['loss']],
-                                   feed_dict={mask: mask_sample,
-                                              X_meas_re: X_meas_re_sample,
-                                              X_gt: X_gt_sample,
-                                              Y_meas_re: Y_meas_re_sample,
-                                              Y_gt: Y_gt_sample})
-                epoch_loss += Loss
+            _, Loss = sess.run([optimizer, final_output['loss']],
+                                feed_dict={mask: mask_sample,
+                                            X_meas_re: X_meas_re_sample,
+                                            X_gt: X_gt_sample,
+                                            Y_meas_re: Y_meas_re_sample,
+                                            Y_gt: Y_gt_sample})
+            epoch_loss += Loss
 
-            end = time.time()
-            logger.info("===> Epoch {} Complete: Avg. Loss: {:.7f} \t Time: {:.2f}".format(
-                epoch, epoch_loss / int(len(nameList)/batch_size), (end - begin)))
+        end = time.time()
+        logger.info("===> Epoch {} - Task {} Complete: Avg. Loss: {:.7f} \t Time: {:.2f}".format(
+            epoch, task_index, epoch_loss / int(len(nameList)/batch_size), (end - begin)))
 
-            if (epoch+1) % step == 0:
-                # save model
-                saver.save(sess, save_path + 'trained_model/model.ckpt',
-                           global_step=epoch, write_meta_graph=False)
-                logger.info('---> model saved to: ' + save_path)
+        if (epoch+1) % step == 0:
+            # save model
+            saver.save(sess, save_path + 'trained_model/model.ckpt',
+                        global_step=epoch, write_meta_graph=False)
+            logger.info('---> model saved to: ' + save_path)
 
-                # eval & save recon (one coded meas)
-                validset_psnr = 0
-                validset_ssim = 0     
-                for task_index in range(num_task):
-                    psnr_all = np.zeros(num_frame)
-                    ssim_all = np.zeros(num_frame)
-                    mask_sample_i = mask_sample[task_index]
+            # eval & save recon (one coded meas)
+            validset_psnr = 0
+            validset_ssim = 0
+            for task_index in range(num_task):
+                psnr_all = np.zeros(num_frame)
+                ssim_all = np.zeros(num_frame)
+                mask_sample_i = mask_sample[task_index]
+                mask_s_sample_i = mask_s_sample[task_index]
 
-                    for index in range(len(valid_nameList)):
-                        # load data
-                        data_tmp = sci.loadmat(valid_dir + valid_nameList[index])
+                for index in range(len(valid_nameList)):
+                    # load data
+                    data_tmp = sci.loadmat(
+                        valid_dir + valid_nameList[index])
 
-                        if "patch_save" in data_tmp:
-                            gt_sample = data_tmp['patch_save'] / 255
-                        elif "orig" in data_tmp:
-                            gt_sample = data_tmp['orig'] / 255
-                        else:
-                            raise FileNotFoundError('No ORIG in dataset')           
-                        meas_sample = generate_meas(gt_sample, mask_sample_i)
-                        
-                        # normalize data
-                        mask_max = np.max(mask_sample_i) 
-                        mask_sample_i = mask_sample_i/mask_max
-                        meas_sample = meas_sample/mask_max
-                        meas_sample_re = meas_sample / mask_s_sample[task_index]
-                        
-                        gt_sample = np.expand_dims(gt_sample, 0)
-                        meas_sample_re = np.expand_dims(meas_sample_re, (0,-1))
+                    if "patch_save" in data_tmp:
+                        gt_sample = data_tmp['patch_save'] / 255
+                    elif "orig" in data_tmp:
+                        gt_sample = data_tmp['orig'] / 255
+                    else:
+                        raise FileNotFoundError('No ORIG in dataset')
+                    meas_sample, gt_sample = generate_meas(gt_sample, mask_sample_i)
 
+                    # normalize data
+                    mask_max = np.max(mask_sample_i)
+                    mask_sample_i = mask_sample_i/mask_max
+                    mask_s_sample_i = mask_s_sample_i/mask_max
+                    meas_sample = meas_sample/mask_max
                     
-                        # test data
-                        pred = sess.run([pred_output['pred']],
-                                feed_dict={eval_mask: mask_sample_i,
-                                           eval_meas_re: meas_sample_re,
-                                           eval_gt: gt_sample}) # pred for Y_meas
-                        
-                        pred = np.array(pred[0])
-                        pred = np.squeeze(pred)
-                        gt_sample = np.squeeze(gt_sample)
-                        
-                        # eval: psnr, ssim
+                    meas_sample_re = meas_sample / mask_s_sample_i
+                    meas_sample_re = np.expand_dims(meas_sample_re, -1)
 
-                        for k in range(num_frame):      
-                            psnr_all[k], ssim_all[k] = cal_psnrssim(gt_sample[...,k], pred[...,k])
-                        
-                        mean_psnr = np.mean(psnr_all)
-                        mean_ssim = np.mean(ssim_all)
-                        
-                        validset_psnr += mean_psnr
-                        validset_ssim += mean_ssim
-                                            
-                        # save 1st data's recon image and data
-                        if index==1:
-                            plot_multi(pred, 'MeasRecon_Task%d_%s_Epoch%d'%(task_index, valid_nameList[index].split('.')[0], epoch), col_num=num_frame//2, titles=psnr_all,savename='MeasRecon_Task%d_%s_Epoch%d_psnr%.2f_ssim%.2f'%(task_index, valid_nameList[index].split('.')[0], epoch,mean_psnr,mean_ssim), savedir=save_path+'recon_img/')
-                    
-                    validset_psnr = validset_psnr/len(valid_nameList)
-                    validset_ssim = validset_ssim/len(valid_nameList)
-                    logger.info('---> Task {} Recon complete: Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(task_index, validset_psnr, validset_ssim))                        
+                    # test data
+                    pred = sess.run([pred_output['pred']],
+                                    feed_dict={eval_mask: mask_sample_i,
+                                                eval_meas_re: meas_sample_re,
+                                                eval_gt: gt_sample})  # pred for Y_meas
+
+                    pred = np.array(pred[0])
+                    pred = np.squeeze(pred)
+                    gt_sample = np.squeeze(gt_sample)
+
+                    # eval: psnr, ssim
+
+                    for k in range(num_frame):
+                        psnr_all[k], ssim_all[k] = cal_psnrssim(
+                            gt_sample[..., k], pred[..., k])
+
+                    mean_psnr = np.mean(psnr_all)
+                    mean_ssim = np.mean(ssim_all)
+
+                    validset_psnr += mean_psnr
+                    validset_ssim += mean_ssim
+
+                    # save 1st data's recon image and data
+                    if index == 1:
+                        plot_multi(pred, 'MeasRecon_Task%d_%s_Epoch%d' % (task_index, valid_nameList[index].split('.')[0], epoch), col_num=num_frame//2, titles=psnr_all, savename='MeasRecon_Task%d_%s_Epoch%d_psnr%.2f_ssim%.2f' % (
+                            task_index, valid_nameList[index].split('.')[0], epoch, mean_psnr, mean_ssim), savedir=save_path+'recon_img/')
+
+                validset_psnr = validset_psnr/len(valid_nameList)
+                validset_ssim = validset_ssim/len(valid_nameList)
+                logger.info('---> Task {} Recon complete: Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(
+                    task_index, validset_psnr, validset_ssim))

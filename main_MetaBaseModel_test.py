@@ -4,11 +4,11 @@
 # modified: Zhihong Zhang, 2021.6
 
 Note:
-- real 'meas' - [H,W,num_task]; simulated 'meas' (auto generated); - [H,W]
+- real 'meas' - [num_task,num_meas,H,W]; simulated 'meas' (auto generated); - [H,W]
+- 'time_all' for the first test data will be longer, which is not representative
 
 Todo:
 - real 'meas' test (data format)
-- batch_size > 1 to speed up (how to save the result?)
 
 """
 
@@ -30,6 +30,7 @@ from my_util.quality_util import cal_psnrssim
 import time
 from tqdm import tqdm
 from MetaFunc import construct_weights_modulation, forward_modulation
+
 #%% setting
 ## envir config
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -51,7 +52,7 @@ num_task = len(picked_task) # num of picked masks
 run_mode = 'test'  # 'train', 'test','finetune'
 test_real = False  # test real data
 pretrain_model_idx = -1  # pretrained model index, 0 for no pretrained
-exp_name = "M_Realmask_data_256_Cr10_zzhTest"
+exp_name = "M_Realmask_Train_256_Cr10_zzhTest_06-18_19-25_Test"
 # exp_name = "real_data_256_Cr10"
 timestamp = '{:%m-%d_%H-%M}'.format(datetime.now())  # date info
 
@@ -59,14 +60,15 @@ timestamp = '{:%m-%d_%H-%M}'.format(datetime.now())  # date info
 # datadir = "../[data]/dataset/training_truth/data_augment_256_8f_demo/"
 # maskpath = "./dataset/mask/origDemo_mask_256_Cr8_4.mat"
 # datadir = "../[data]/dataset/testing_truth/bm_256_10f/"
-datadir = "../[data]/dataset/testing_truth/test_256_10f/"
+datadir = "../[data]/benchmark/orig/bm_256/"
+# datadir = "../[data]/dataset/testing_truth/test_256_10f/"
 maskpath = "./dataset/mask/realMask_256_Cr10_N576_overlap50.mat"
 # datadir = "../[data]/dataset/training_truth/data_augment_512_10f/"
 # maskpath = "./dataset/mask/demo_mask_512_Cr10_N4.mat"
 
 # model path
 # pretrain_model_path = './result/_pretrained_model/simulate_data_256_Cr8/'
-pretrain_model_path = './result/train/M_RealmaskDemo_data_256_Cr10_zzhTest/trained_model/'
+pretrain_model_path = './result/train/M_Realmask_Train_256_Cr10_zzhTest_06-18_19-25/trained_model/'
 # pretrain_model_path = './result/train/real_data_512_Cr10/'
 
 # saving path
@@ -122,84 +124,98 @@ with tf.Session() as sess:
             raise FileNotFoundError('No pretrained model found')
                                        
     # [==> test]             
-    if (run_mode in ['test']):  
-        validset_psnr = 0
-        validset_ssim = 0      
-        for task_index in range(num_task):
-            time_all = 0
-            psnr_all = np.zeros(num_frame)
-            ssim_all = np.zeros(num_frame) 
-            mask_sample_i = mask_sample[task_index]
-            
-            for index in tqdm(range(len(nameList))):
-                # load data
-                data_tmp = sci.loadmat(datadir + nameList[index])
-    
-                if test_real:
-                    gt_sample = np.zeros([image_dim, image_dim, num_frame])
-                    assert "meas" in data_tmp, 'NotFound ERROR: No MEAS in dataset'
-                    meas_sample = data_tmp['meas'][task_index]
-                    # meas_tmp = data_tmp['meas']task_index / 255
-                else:
-                    if "patch_save" in data_tmp:
-                        gt_sample = data_tmp['patch_save'] / 255
-                    elif "orig" in data_tmp:
-                        gt_sample = data_tmp['orig'] / 255
-                    else:
-                        raise FileNotFoundError('No ORIG in dataset')           
-                    meas_sample = generate_meas(gt_sample, mask_sample_i)
-                
-                # normalize data
-                mask_max = np.max(mask_sample_i) 
-                mask_sample_i = mask_sample_i/mask_max
-                meas_sample = meas_sample/mask_max
-                meas_sample_re = meas_sample / mask_s_sample[task_index]
-                
-                gt_sample = np.expand_dims(gt_sample, 0)
-                meas_sample_re = np.expand_dims(meas_sample_re, (0,-1))
+    validset_psnr = 0
+    validset_ssim = 0      
+    for task_index in range(num_task):
+        mask_sample_i = mask_sample[task_index]
+        mask_s_sample_i = mask_s_sample[task_index]
+        for index in tqdm(range(len(nameList))):
+            # load data
+            data_tmp = sci.loadmat(datadir + nameList[index])
 
+            if test_real:
+                gt_tmp = np.zeros([image_dim, image_dim, num_frame])
+                assert "meas" in data_tmp, 'NotFound ERROR: No MEAS in dataset'
+                meas_sample = data_tmp['meas'][task_index]
+                # meas_tmp = data_tmp['meas']task_index / 255
+            else:
+                if "patch_save" in data_tmp:
+                    gt_tmp = data_tmp['patch_save'] / 255
+                elif "orig" in data_tmp:
+                    gt_tmp = data_tmp['orig'] / 255
+                else:
+                    raise FileNotFoundError('No ORIG in dataset')           
+                meas_sample,gt_sample = generate_meas(gt_tmp, mask_sample_i)
             
-                # test data
+            # normalize data
+            mask_max = np.max(mask_sample_i) 
+            mask_sample_i = mask_sample_i/mask_max
+            mask_s_sample_i = mask_s_sample_i/mask_max # to be verified
+            
+            meas_sample = meas_sample/mask_max
+            meas_sample_re = meas_sample / mask_s_sample_i
+            meas_sample_re = np.expand_dims(meas_sample_re, -1)
+
+        
+            # test data
+            pred = np.zeros((image_dim, image_dim, num_frame,meas_sample_re.shape[0]))
+            time_all = 0
+            for k in range(meas_sample_re.shape[0]):
+                meas_sample_re_k = np.expand_dims(meas_sample_re[k],0)
+                gt_sample_k =  np.expand_dims(gt_sample[k],0)
+                
                 begin = time.time()
-                pred = sess.run([final_output['pred']],
+                pred_k = sess.run([final_output['pred']],
                         feed_dict={mask: mask_sample_i,
-                                    meas_re: meas_sample_re,
-                                    gt: gt_sample}) # pred for Y_meas
+                                    meas_re: meas_sample_re_k,
+                                    gt: gt_sample_k}) # pred for Y_meas
                 time_all += time.time() - begin
                 
-                pred = np.array(pred[0])
-                pred = np.squeeze(pred)
-                gt_sample = np.squeeze(gt_sample)
-                
-                # eval: psnr, ssim
-                if len(gt_sample)>0:
+                pred[...,k] = pred_k[0]
+            
+            
+            
+            # eval: psnr, ssim
+            mean_psnr,mean_ssim = 0,0
+            psnr_all = np.zeros(0)
+            ssim_all = np.zeros(0)                 
+            if np.sum(gt_sample)!=0:
+                for m in range(meas_sample_re.shape[0]):
+                    psnr_all_m = np.zeros(0)
+                    ssim_all_m = np.zeros(0)
                     for k in range(num_frame):      
-                        psnr_all[k], ssim_all[k] = cal_psnrssim(gt_sample[...,k], pred[...,k])
+                        psnr_k, ssim_k = cal_psnrssim(gt_sample[m,...,k], pred[...,k,m])
+                        psnr_all_m = np.append(psnr_all_m,psnr_k)
+                        ssim_all_m =np.append(ssim_all_m,ssim_k)
+                        
+                    psnr_all = np.append(psnr_all,psnr_all_m)
+                    ssim_all =np.append(ssim_all,ssim_all_m)
                     
-                    mean_psnr = np.mean(psnr_all)
-                    mean_ssim = np.mean(ssim_all)
-                    
-                    validset_psnr += mean_psnr
-                    validset_ssim += mean_ssim  
-                                      
-                    logger.info('---> Task {} - {:<20s} Recon complete: PSNR {:.2f}, SSIM {:.2f}, Time {:.2f}'.format(task_index, nameList[index], mean_psnr, mean_ssim, time_all))
+                    # save image
+                    plot_multi(pred[...,m], 'MeasRecon_Task%d_%s_Frame%d'%(picked_task[task_index], nameList[index].split('.')[0],m), col_num=num_frame//2, titles=psnr_all_m,savename='MeasRecon_Task%d_%s_Frame%d_psnr%.2f_ssim%.2f'%(picked_task[task_index], nameList[index].split('.')[0],m,np.mean(psnr_all_m),np.mean(ssim_all_m)), savedir=save_path+'recon_img/')                            
+                                        
+                mean_psnr = np.mean(psnr_all)
+                mean_ssim = np.mean(ssim_all)
                 
-                # save image and data
-                plot_multi(pred, 'MeasRecon_Task%d_%s'%(task_index, nameList[index].split('.')[0]), col_num=num_frame//2, titles=psnr_all,savename='MeasRecon_Task%d_%s_psnr%.2f_ssim%.2f'%(task_index, nameList[index].split('.')[0],mean_psnr,mean_ssim), savedir=save_path+'recon_img/')
-                
-                if not ope(save_path+'recon_mat/'):
-                    os.makedirs(save_path+'recon_mat/')
-                sci.savemat(save_path+'recon_mat/MeasRecon_Task%d_%s_psnr%.2f_ssim%.2f.mat'%(task_index, nameList[index].split('.')[0],mean_psnr,mean_ssim),
-                            {'recon':pred, 
-                            'gt':gt_sample,
-                            'psnr_all':psnr_all,
-                            'ssim_all':ssim_all,
-                            'mean_psnr':mean_psnr,
-                            'mean_ssim':mean_ssim,
-                            'time_all':time_all,
-                            'task_index':task_index            
-                            })
-                logger.info('---> Recon data saved to: '+save_path)
-        validset_psnr /= len(nameList)
-        validset_ssim /= len(nameList)       
-        logger.info('===> Task {} Recon complete: Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(task_index, validset_psnr, validset_ssim))
+                validset_psnr += mean_psnr
+                validset_ssim += mean_ssim  
+                                    
+                logger.info('---> Task {} - {:<20s} Recon complete: PSNR {:.2f}, SSIM {:.2f}, Time {:.2f}'.format(picked_task[task_index], nameList[index], mean_psnr, mean_ssim, time_all))
+
+            
+            if not ope(save_path+'recon_mat/'):
+                os.makedirs(save_path+'recon_mat/')
+            sci.savemat(save_path+'recon_mat/MeasRecon_Task%d_%s_psnr%.2f_ssim%.2f.mat'%(picked_task[task_index], nameList[index].split('.')[0],mean_psnr,mean_ssim),
+                        {'recon':pred, 
+                        'gt':gt_sample,
+                        'psnr_all':psnr_all,
+                        'ssim_all':ssim_all,
+                        'mean_psnr':mean_psnr,
+                        'mean_ssim':mean_ssim,
+                        'time_all':time_all,
+                        'task_index':picked_task[task_index]            
+                        })
+            logger.info('---> Recon data saved to: '+save_path)
+    validset_psnr /= len(nameList)
+    validset_ssim /= len(nameList)       
+    logger.info('===> Task No. {} Recon complete: Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(task_index, validset_psnr, validset_ssim))

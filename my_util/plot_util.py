@@ -23,9 +23,8 @@ def plot(img,title="",savename="",savedir=None):
     plt.close()
     
 def plot12(img1,img2,title1="",title2="",title="",savename="",savedir=None):
-    # plot two figure  
-    plt.figure()
-    plt.title(title)
+    fig = plt.figure()
+    fig.suptitle(title)
     plt.subplot(121)
     plt.title(title1)
     plt.imshow(img1,vmax=img1.max(),vmin=0)
@@ -33,8 +32,6 @@ def plot12(img1,img2,title1="",title2="",title="",savename="",savedir=None):
     plt.title(title2)
     plt.imshow(img2,vmax=img2.max(),vmin=0)
     if savedir!=None:
-        if not ope(savedir):
-            os.makedirs(savedir)        
         plt.savefig(opj(savedir,savename+'.png'),dpi=200)
     else:
         plt.show()
@@ -42,8 +39,8 @@ def plot12(img1,img2,title1="",title2="",title="",savename="",savedir=None):
     
 def plot_multi(imgs, title="", titles=None, col_num=4, fig_sz=None, savename="", savedir=None):
     # plot multiple figures
-    plt.figure(figsize=fig_sz)
-    plt.title(title)
+    fig = plt.figure()
+    fig.suptitle(title)
     
     num_img = imgs.shape[-1]
 
@@ -54,10 +51,10 @@ def plot_multi(imgs, title="", titles=None, col_num=4, fig_sz=None, savename="",
         if titles is not None:
             if isinstance(titles[0],str):
                 # titles are strings
-                plt.title('Frame #{0:d}: '.format(nt+1) + titles[nt], fontsize=12)
+                plt.title('#{0:d}: '.format(nt+1) + titles[nt], fontsize=12)
             else:
                 # titles are values
-                plt.title('Frame #{0:d}: {1:.2f}'.format(nt+1,  titles[nt]), fontsize=12)
+                plt.title('#{0:d}: {1:.2f}'.format(nt+1,  titles[nt]), fontsize=12)
     plt.subplots_adjust(wspace=0.02, hspace=0.02, bottom=0, top=1, left=0, right=1)
     
     if savedir is not None:
@@ -116,8 +113,8 @@ def plot_boxplot(array,showfliers=True,whis=1.5,flierprops=None,title='',savenam
 
 def plot12_boxplot(array1,array2,showfliers=True,whis=1.5,flierprops=None,
                     title1="",title2="",title="",savename="",savedir=None):
-    plt.figure()
-    plt.title(title)
+    fig = plt.figure()
+    fig.suptitle(title)
     plt.subplot(121)
     plt.title(title1)
     plt.boxplot(array1,showfliers=showfliers,whis=whis,flierprops=flierprops)
