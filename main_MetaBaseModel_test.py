@@ -47,12 +47,12 @@ image_dim = 256
 sigmaInit = 0.01
 update_lr = 1e-5
 num_updates = 5
-picked_task = [0,2,4] # pick masks for base model train
+picked_task = [200] # pick masks for base model train
 num_task = len(picked_task) # num of picked masks
 run_mode = 'test'  # 'train', 'test','finetune'
 test_real = False  # test real data
 pretrain_model_idx = -1  # pretrained model index, 0 for no pretrained
-exp_name = "M_Realmask_BaseTest_256_Cr10_zzhTest_06-18_19-25_Test"
+exp_name = "A_Realmask_BaseTest_256_Cr10_06-18_19-25"
 # exp_name = "real_data_256_Cr10"
 timestamp = '{:%m-%d_%H-%M}'.format(datetime.now())  # date info
 
@@ -122,7 +122,7 @@ with tf.Session() as sess:
                                        
     # [==> test]                 
     for task_index in range(num_task):
-        logger.info('\n===== Task Task {:4d}/{:<4d} Test Begin=====\n'.format(task_index, len(picked_task)))
+        logger.info('\n===== Task {:4d}/{:<4d} Test Begin=====\n'.format(task_index, len(picked_task)))
         validset_psnr = 0
         validset_ssim = 0  
         mask_sample_i = mask_sample[task_index]

@@ -122,7 +122,7 @@ with tf.Session() as sess:
             raise FileNotFoundError('No pretrained model found')
                                        
         # [==> test]                 
-        logger.info('\n===== Task Task {:4d}/{:<4d} Test Begin=====\n'.format(task_index, len(picked_task)))
+        logger.info('\n===== Task {:4d}/{:<4d} Test Begin=====\n'.format(task_index, len(picked_task)))
         validset_psnr = 0
         validset_ssim = 0  
         mask_sample_i = mask_sample[task_index]

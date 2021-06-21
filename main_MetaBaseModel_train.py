@@ -40,20 +40,21 @@ tf.reset_default_graph()
 # setting global parameters
 batch_size = 1
 Total_batch_size = batch_size*2  # X_meas & Y_meas
-num_frame = 10
+num_frame = 8
 image_dim = 256
 Epoch = 100
 sigmaInit = 0.01
 step = 1
 update_lr = 1e-5
 num_updates = 5
-max_iter = 3e4 # max iter in one epoch
+max_iter = 30000 # max iter in one epoch
 picked_task = [200]  # pick masks for base model train
 num_task = len(picked_task)  # num of picked masks
 run_mode = 'finetune'  # 'train', 'test','finetune'
 test_real = False  # test real data
 pretrain_model_idx = -1  # pretrained model index, 0 for no pretrained
-exp_name = "Realmask_BaseTrain_256_Cr10_zzhTest"
+# exp_name = "Realmask_BaseTrain_256_Cr10_zzhTest"
+exp_name = "simulate_data_256_Cr8_zzhTest"
 timestamp = '{:%m-%d_%H-%M}'.format(datetime.now())  # date info
 
 # data path
@@ -67,8 +68,8 @@ maskpath = "./dataset/mask/realMask_256_Cr10_N576_overlap50.mat"
 # maskpath = "./dataset/mask/demo_mask_512_Cr10_N4.mat"
 
 # model path
-# pretrain_model_path = './result/_pretrained_model/simulate_data_256_Cr8/'
-pretrain_model_path = './result/train/M_Realmask_data_256_Cr10_zzhTest_06-17_21-10/trained_model/'
+pretrain_model_path = './result/_pretrained_model/simulate_data_256_Cr8/'
+# pretrain_model_path = './result/train/M_Realmask_data_256_Cr10_zzhTest_06-17_21-10/trained_model/'
 
 # saving path
 save_path = './result/train/'+exp_name+'_'+timestamp+'/'
