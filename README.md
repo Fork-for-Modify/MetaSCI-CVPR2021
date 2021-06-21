@@ -1,6 +1,6 @@
 # MetaSCI-CVPR2021
 
-This code is for CVPR 2021 paper "MetaSCI: Scalable and Adaptive Reconstruction for Video Compressive Sensing". Main of the codes are reproduced by [Zhihong Zhang](https://github.com/dawnlh), without verification. Original code repository is located at https://github.com/xyvirtualgroup/MetaSCI-CVPR2021
+This code is for CVPR 2021 paper "MetaSCI: Scalable and Adaptive Reconstruction for Video Compressive Sensing" （modified by [Zhihong Zhang](https://github.com/dawnlh)).  Original code repository is located at https://github.com/xyvirtualgroup/MetaSCI-CVPR2021
 
 
 
