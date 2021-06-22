@@ -40,13 +40,16 @@ tf.reset_default_graph()
 # setting global parameters
 batch_size = 1
 Total_batch_size = batch_size*2  # X_meas & Y_meas
-num_frame = 8
+num_frame = 10
 image_dim = 256
 Epoch = 100
 sigmaInit = 0.01
+init_lr = 5e-4
+decay_rate = 0.9
+decay_steps = 10000
 step = 1
-update_lr = 1e-5
-num_updates = 5
+update_lr = 1e-5 # learning rate for self-designed multi-task gradient update
+num_updates = 5  # num of update for self-designed multi-task gradient update
 max_iter = 30000 # max iter in one epoch
 picked_task = [200]  # pick masks for base model train
 num_task = len(picked_task)  # num of picked masks
@@ -54,7 +57,7 @@ run_mode = 'finetune'  # 'train', 'test','finetune'
 test_real = False  # test real data
 pretrain_model_idx = -1  # pretrained model index, 0 for no pretrained
 # exp_name = "Realmask_BaseTrain_256_Cr10_zzhTest"
-exp_name = "simulate_data_256_Cr8_zzhTest"
+exp_name = "simulate_data_256_Cr10_zzhTest"
 timestamp = '{:%m-%d_%H-%M}'.format(datetime.now())  # date info
 
 # data path
@@ -68,8 +71,8 @@ maskpath = "./dataset/mask/realMask_256_Cr10_N576_overlap50.mat"
 # maskpath = "./dataset/mask/demo_mask_512_Cr10_N4.mat"
 
 # model path
-pretrain_model_path = './result/_pretrained_model/simulate_data_256_Cr8/'
-# pretrain_model_path = './result/train/M_Realmask_data_256_Cr10_zzhTest_06-17_21-10/trained_model/'
+# pretrain_model_path = './result/_pretrained_model/simulate_data_256_Cr8/'
+pretrain_model_path = './result/train/M_Realmask_data_256_Cr10_zzhTest_06-17_21-10/trained_model/'
 
 # saving path
 save_path = './result/train/'+exp_name+'_'+timestamp+'/'
@@ -94,8 +97,8 @@ logger.info('\t Exp. name: '+exp_name)
 logger.info('\t Mask path: '+maskpath)
 logger.info('\t Data dir: '+datadir)
 logger.info('\t pretrain model: '+pretrain_model_path)
-logger.info('\t Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, update_lr {:f}, num_updates {:d}, max_iter {:d}, picked_task {:s}, run_mode- {:s}, pretrain_model_idx {:d}'.format(
-    batch_size, num_frame, image_dim, sigmaInit, update_lr, num_updates, max_iter, str(picked_task), run_mode, pretrain_model_idx))
+logger.info('\t Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, init_lr {:f}, decay_rate {:f}, decay_steps {:d}, update_lr {:f}, num_updates {:d}, max_iter {:d}, picked_task {:s}, run_mode- {:s}, pretrain_model_idx {:d}'.format(
+    batch_size, num_frame, image_dim, sigmaInit, init_lr, decay_rate, decay_steps, update_lr, num_updates, max_iter, str(picked_task), run_mode, pretrain_model_idx))
 
 # %% construct graph, load pretrained params ==> train, finetune, test
 weights, weights_m = construct_weights_modulation(sigmaInit, num_frame)
@@ -109,8 +112,15 @@ Y_gt = tf.placeholder('float32', [num_task, batch_size, image_dim, image_dim, nu
 
 final_output = MAML_modulation(mask, X_meas_re, X_gt, Y_meas_re, Y_gt, weights,
                                weights_m, batch_size, num_frame, image_dim, update_lr, num_updates)
+
+# learning rate
+global_step = tf.Variable(tf.constant(0), trainable=False)
+learning_rate = tf.train.exponential_decay(init_lr,
+                                           global_step=global_step,
+                                           decay_steps=decay_steps,
+                                           decay_rate=decay_rate)
 optimizer = tf.train.AdamOptimizer(
-    learning_rate=0.00025).minimize(final_output['loss'])
+    learning_rate=learning_rate).minimize(final_output['loss'],global_step=global_step)
 saver = tf.train.Saver()
 
 # For eval
@@ -191,6 +201,10 @@ with tf.Session() as sess:
                                             Y_meas_re: Y_meas_re_sample,
                                             Y_gt: Y_gt_sample})
             
+            # debug: learning rate
+            # rate = sess.run([learning_rate])
+            # print('curent learning rate:', rate)  
+                    
             epoch_loss += Loss
 
         end = time.time()
@@ -263,4 +277,5 @@ with tf.Session() as sess:
 
                 validset_psnr = validset_psnr/len(valid_nameList)
                 validset_ssim = validset_ssim/len(valid_nameList)
-                logger.info('---> Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(validset_psnr, validset_ssim))
+                lr_now = sess.run([learning_rate])
+                logger.info('---> Aver. PSNR {:.2f}, Aver.SSIM {:.2f} Learning rate {:.5e}'.format(validset_psnr, validset_ssim, lr_now[0]))

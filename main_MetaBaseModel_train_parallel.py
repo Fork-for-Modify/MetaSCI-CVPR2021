@@ -43,6 +43,9 @@ Total_batch_size = batch_size*2  # X_meas & Y_meas
 num_frame = 10
 image_dim = 256
 Epoch = 100
+init_lr = 5e-4
+decay_rate = 0.9
+decay_steps = 10000
 sigmaInit = 0.01
 step = 1
 update_lr = 1e-5
@@ -93,7 +96,7 @@ logger.info('\t Exp. name: '+exp_name)
 logger.info('\t Mask path: '+maskpath)
 logger.info('\t Data dir: '+datadir)
 logger.info('\t pretrain model: '+pretrain_model_path)
-logger.info('\t Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, update_lr {:f}, num_updates {:d}, max_iter {:d}, picked_task {:s}, gpus {:s}, run_mode- {:s}, pretrain_model_idx {:d}'.format(batch_size, num_frame, image_dim, sigmaInit, update_lr, num_updates, max_iter, str(picked_task), str(gpus), run_mode, pretrain_model_idx))
+logger.info('\t Params: batch_size {:d}, num_frame {:d}, image_dim {:d}, sigmaInit {:f}, init_lr {:f}, decay_rate {:f}, decay_steps {:d}, update_lr {:f}, num_updates {:d}, max_iter {:d}, picked_task {:s}, gpus {:s}, run_mode- {:s}, pretrain_model_idx {:d}'.format(batch_size, num_frame, image_dim, sigmaInit, init_lr, decay_rate, decay_steps, update_lr, num_updates, max_iter, str(picked_task), str(gpus), run_mode, pretrain_model_idx))
 
 # %% construct graph, load pretrained params ==> train, finetune, test
 weights, weights_m = construct_weights_modulation(sigmaInit, num_frame)
@@ -147,7 +150,13 @@ tower_grads = []
 tower_loss = []
 reuse_vars = False
 
-
+# learning rate
+global_step = tf.Variable(tf.constant(0), trainable=False)
+learning_rate = tf.train.exponential_decay(init_lr,
+                                        global_step=global_step,
+                                        decay_steps=decay_steps,
+                                        decay_rate=decay_rate)
+            
 for i in range(len(gpus)):
     with tf.device('/gpu:%d' % i):
         with tf.variable_scope('forward', reuse=reuse_vars):
@@ -165,8 +174,8 @@ for i in range(len(gpus)):
             ytask_output = forward_modulation(mask[i], Y_meas_re[i], Y_gt[i], weights, fast_weights, batch_size, num_frame, image_dim)
 
             loss_op = ytask_output['loss']
-
-            optimizer = tf.train.AdamOptimizer(learning_rate=0.00025)
+            
+            optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
             grads = optimizer.compute_gradients(loss_op)
 
             reuse_vars = True
@@ -177,7 +186,7 @@ tower_grads = average_gradients(tower_grads)
 
 update = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 with tf.control_dependencies(update):
-    train_op = optimizer.apply_gradients(tower_grads)
+    train_op = optimizer.apply_gradients(tower_grads, global_step=global_step)
     tower_loss = tf.reduce_sum(tower_loss)
 
 saver = tf.train.Saver()
@@ -245,6 +254,10 @@ with tf.Session() as sess:
                                           Y_meas_re: Y_meas_re_sample,
                                           Y_gt: Y_gt_sample})
 
+            # debug: learning rate
+            # rate = sess.run([learning_rate])
+            # print('current learning rate:', rate)    
+            
             epoch_loss += Loss
 
         end = time.time()
@@ -317,4 +330,5 @@ with tf.Session() as sess:
 
                 validset_psnr = validset_psnr/len(valid_nameList)
                 validset_ssim = validset_ssim/len(valid_nameList)
-                logger.info('---> Aver. PSNR {:.2f}, Aver.SSIM {:.2f}'.format(validset_psnr, validset_ssim))
+                lr_now = sess.run([learning_rate])
+                logger.info('---> Aver. PSNR {:.2f}, Aver.SSIM {:.2f} Learning rate {:.5e}'.format(validset_psnr, validset_ssim, lr_now[0]))
